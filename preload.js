@@ -7,9 +7,12 @@ contextBridge.exposeInMainWorld('api', {
   getWatches: () => ipcRenderer.invoke('get-watches'),
   addWatch: (w) => ipcRenderer.invoke('add-watch', w),
   removeWatch: (id) => ipcRenderer.invoke('remove-watch', id),
+  updateWatch: (id, patch) => ipcRenderer.invoke('update-watch', { id, patch }),
 
   toggleRunning: () => ipcRenderer.invoke('toggle-running'),
   getStatus: () => ipcRenderer.invoke('get-status'),
 
-  onLog: (cb) => ipcRenderer.on('log', (_e, msg) => cb(msg))
+  fetchImage: (appid, name) => ipcRenderer.invoke('fetch-image', { appid, name }),
+
+  onWatchLog: (cb) => ipcRenderer.on('watch-log', (_e, evt) => cb(evt)), // {id,msg}
 });
