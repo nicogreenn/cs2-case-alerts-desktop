@@ -14,5 +14,6 @@ contextBridge.exposeInMainWorld('api', {
 
   fetchImage: (appid, name) => ipcRenderer.invoke('fetch-image', { appid, name }),
 
-  onWatchLog: (cb) => ipcRenderer.on('watch-log', (_e, evt) => cb(evt)), // {id,msg}
+  onWatchLog: (cb) => ipcRenderer.on('watch-log', (_e, evt) => cb(evt)),
+  onWatchesChanged: (cb) => ipcRenderer.on('watches-changed', cb)
 });
