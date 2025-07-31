@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <title>CS2 Case Alerts</title>
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:;">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -17,11 +18,7 @@
     <h2>Settings</h2>
     <div class="grid">
       <label>Currency
-        <select id="currency">
-          <option value="1">$ (USD)</option>
-          <option value="2" selected>£ (GBP)</option>
-          <option value="3">€ (EUR)</option>
-        </select>
+        <select id="currency"><option value="1">$ (USD)</option><option value="2" selected>£ (GBP)</option><option value="3">€ (EUR)</option></select>
       </label>
       <label>Check every (sec)<input type="number" id="interval" min="10" value="60"></label>
       <label>Alert cooldown (min)<input type="number" id="cooldown" min="1" value="20"></label>
@@ -45,9 +42,7 @@
   <section class="card">
     <h2>Profit Calculator</h2>
     <div class="grid">
-      <label>Pick watch
-        <select id="calcWatch"></select>
-      </label>
+      <label>Pick watch <select id="calcWatch"></select></label>
       <label>Buy price (B) <input id="calcBuy" type="number" step="0.01"></label>
       <label>Target ROI % (r) <input id="calcRoi" type="number" step="1" value="15"></label>
       <label>Fee rate (f) <input id="calcFee" type="number" step="0.01" disabled></label>
@@ -66,15 +61,12 @@
   </section>
 
   <section class="card">
-    <h2>Watches</h2>
-    <table id="watchTable">
-      <thead><tr><th>AppID</th><th>Name</th><th>Buy ≤</th><th>Profit ≥</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
+    <h2>Your Watches</h2>
+    <div id="cards" class="cards"></div>
   </section>
 
   <section class="card">
-    <h2>Logs</h2>
+    <h2>Global Logs</h2>
     <pre id="logs"></pre>
   </section>
 
