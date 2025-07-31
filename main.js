@@ -36,19 +36,55 @@ function createTray() {
 
 function sendNativeNotification(title, body) { new Notification({ title, body, silent:false }).show(); }
 
-app.whenReady().then(() => {
+// --- image helpers ---
+async function fetchListingImage(appid, name) {
+  const url = `https://steamcommunity.com/market/listings/${appid}/${encodeURIComponent(name)}`;
+  const res = await axios.get(url, { timeout: 15000 });
+  const html = res.data;
+  const og = /<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/.exec(html);
+  if (og?.[1]) return og[1];
+  const im = /market_listing_largeimage.*?src=["']([^"']+)["']/.exec(html);
+  if (im?.[1]) return im[1];
+  return "";
+}
+
+async function prefetchImagesIfMissing() {
+  const watches = store.getWatches();
+  for (const w of watches) {
+    if (!w.imageUrl) {
+      try {
+        const url = await fetchListingImage(w.appid || 730, w.market_hash_name);
+        if (url) {
+          store.updateWatch(w.id, { imageUrl: url });
+          if (win) win.webContents.send('watch-log', { id: w.id, msg: `[info] fetched image` });
+        }
+      } catch (e) {
+        if (win) win.webContents.send('watch-log', { id: w.id, msg: `[warn] image fetch failed: ${e.message || e}` });
+      }
+    }
+  }
+}
+
+app.whenReady().then(async () => {
   store = new Store();
+
+  // prefetch thumbnails on first boot (and anytime repo starts with missing images)
+  await prefetchImagesIfMissing();
+
   watcher = new Watcher({
     store,
-    onLog: (evt) => win && win.webContents.send('watch-log', evt), // {id,msg}
+    // now emits structured events (incl. type:'price') — pass straight to renderer
+    onLog: (evt) => win && win.webContents.send('watch-log', evt),
     onNotify: ({ title, message }) => sendNativeNotification(title, message)
   });
 
-  createWindow(); createTray();
+  createWindow();
+  createTray();
 
-  // Settings + watches
+  // settings + watches
   ipcMain.handle('get-settings', () => store.getSettings());
   ipcMain.handle('save-settings', (_e, s) => { store.saveSettings(s); watcher.reload(); return true; });
+
   ipcMain.handle('get-watches', () => store.getWatches());
   ipcMain.handle('add-watch', (_e, w) => { store.addWatch(w); return store.getWatches(); });
   ipcMain.handle('remove-watch', (_e, id) => { store.removeWatch(id); return store.getWatches(); });
@@ -57,22 +93,12 @@ app.whenReady().then(() => {
   ipcMain.handle('toggle-running', () => { if (watcher.isRunning()) watcher.pause(); else watcher.resume(); return watcher.isRunning(); });
   ipcMain.handle('get-status', () => ({ running: watcher.isRunning(), nextCheckInSec: watcher.timeUntilNextCheck() }));
 
-  // Fetch image (main process avoids renderer CSP)
-  ipcMain.handle('fetch-image', async (_e, { appid, name }) => {
-    const url = `https://steamcommunity.com/market/listings/${appid}/${encodeURIComponent(name)}`;
-    const res = await axios.get(url, { timeout: 15000 });
-    const html = res.data;
-    // try og:image first
-    const og = /<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/.exec(html);
-    if (og?.[1]) return og[1];
-    // fallback to large listing image
-    const im = /market_listing_largeimage.*?src=["']([^"']+)["']/.exec(html);
-    if (im?.[1]) return im[1];
-    return "";
-  });
+  // manual fetch (button in UI still works)
+  ipcMain.handle('fetch-image', async (_e, { appid, name }) => fetchListingImage(appid, name));
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow(); else win.show();
   });
 });
+
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
