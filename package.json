@@ -20,21 +20,15 @@
       "store.js",
       "watcher.js"
     ],
-    "mac": {
-      "category": "public.app-category.utilities"
-    },
-    "win": {
-      "target": "nsis"
-    },
-    "linux": {
-      "target": "AppImage"
-    }
+    "mac": { "category": "public.app-category.utilities" },
+    "win": { "target": "nsis" },
+    "linux": { "target": "AppImage" }
   },
   "dependencies": {
-    "axios": "^1.7.2",
-    "electron": "^30.0.0"
+    "axios": "^1.7.2"
   },
   "devDependencies": {
+    "electron": "^30.0.0",
     "electron-builder": "^24.13.3"
   }
 }
