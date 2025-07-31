@@ -1,0 +1,83 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>CS2 Case Alerts</title>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>CS2 Case Alerts</h1>
+    <button id="toggleRun">Pause</button>
+    <span id="statusTxt"></span>
+  </header>
+
+  <section class="card">
+    <h2>Settings</h2>
+    <div class="grid">
+      <label>Currency
+        <select id="currency">
+          <option value="1">$ (USD)</option>
+          <option value="2" selected>£ (GBP)</option>
+          <option value="3">€ (EUR)</option>
+        </select>
+      </label>
+      <label>Check every (sec)<input type="number" id="interval" min="10" value="60"></label>
+      <label>Alert cooldown (min)<input type="number" id="cooldown" min="1" value="20"></label>
+      <label>Fee rate (0–1)<input type="number" step="0.01" id="feeRate" value="0.15"></label>
+      <label>Discord webhook (optional)<input type="text" id="webhook" placeholder="https://discord.com/api/webhooks/..."></label>
+    </div>
+    <button id="saveSettings">Save</button>
+  </section>
+
+  <section class="card">
+    <h2>Add Case</h2>
+    <div class="grid">
+      <label>Market name (exact) <input id="name" placeholder="Fracture Case"></label>
+      <label>Buy ≤ <input id="buy" type="number" step="0.01" placeholder="0.30"></label>
+      <label>Profit ≥ <input id="sell" type="number" step="0.01" placeholder="0.45"></label>
+      <label>AppID <input id="appid" type="number" value="730"></label>
+    </div>
+    <button id="addWatch">Add</button>
+  </section>
+
+  <section class="card">
+    <h2>Profit Calculator</h2>
+    <div class="grid">
+      <label>Pick watch
+        <select id="calcWatch"></select>
+      </label>
+      <label>Buy price (B) <input id="calcBuy" type="number" step="0.01"></label>
+      <label>Target ROI % (r) <input id="calcRoi" type="number" step="1" value="15"></label>
+      <label>Fee rate (f) <input id="calcFee" type="number" step="0.01" disabled></label>
+    </div>
+    <div class="grid" style="margin-top:8px">
+      <button class="roiQuick" data-r="5">5%</button>
+      <button class="roiQuick" data-r="10">10%</button>
+      <button class="roiQuick" data-r="15">15%</button>
+      <button class="roiQuick" data-r="25">25%</button>
+      <button class="roiQuick" data-r="50">50%</button>
+    </div>
+    <div style="margin-top:12px">
+      <div id="calcOut"></div>
+      <button id="applyToWatch" style="margin-top:8px">Apply sell target to selected watch</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Watches</h2>
+    <table id="watchTable">
+      <thead><tr><th>AppID</th><th>Name</th><th>Buy ≤</th><th>Profit ≥</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>Logs</h2>
+    <pre id="logs"></pre>
+  </section>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

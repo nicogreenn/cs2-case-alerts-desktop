@@ -1,0 +1,40 @@
+{
+  "name": "cs2-case-alerts-desktop",
+  "version": "1.1.0",
+  "main": "main.js",
+  "description": "Desktop watcher for CS2 case prices with buy/profit alerts + profit calculator",
+  "author": "Nico",
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron .",
+    "build": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "com.nico.cs2casealerts",
+    "productName": "CS2 Case Alerts",
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**",
+      "store.js",
+      "watcher.js"
+    ],
+    "mac": {
+      "category": "public.app-category.utilities"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "electron": "^30.0.0"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.13.3"
+  }
+}
