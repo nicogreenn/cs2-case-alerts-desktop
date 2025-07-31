@@ -14,10 +14,17 @@ function getTrayIcon() {
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 940, height: 720,
-    webPreferences: { preload: path.join(__dirname, 'preload.js') }
+    width: 940,
+    height: 720,
+    show: false,                         // avoid white flash
+    backgroundColor: '#0b0d10',          // dark window bg
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js')
+    }
   });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  win.once('ready-to-show', () => win.show());
   win.on('close', (e) => { if (!app.isQuiting) { e.preventDefault(); win.hide(); } });
 }
 
@@ -34,57 +41,81 @@ function createTray() {
   tray.on('click', () => win.show());
 }
 
-function sendNativeNotification(title, body) { new Notification({ title, body, silent:false }).show(); }
+function sendNativeNotification(title, body) {
+  new Notification({ title, body, silent: false }).show();
+}
 
-// --- image helpers ---
-async function fetchListingImage(appid, name) {
+// --- robust thumbnail fetcher ---
+async function fetchImageUrl(appid, name) {
   const url = `https://steamcommunity.com/market/listings/${appid}/${encodeURIComponent(name)}`;
-  const res = await axios.get(url, { timeout: 15000 });
-  const html = res.data;
-  const og = /<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/.exec(html);
-  if (og?.[1]) return og[1];
-  const im = /market_listing_largeimage.*?src=["']([^"']+)["']/.exec(html);
-  if (im?.[1]) return im[1];
+  const { data: html } = await axios.get(url, {
+    timeout: 20000,
+    headers: {
+      // mimic a real browser
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+    }
+  });
+
+  // 1) og:image
+  let m = /<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i.exec(html);
+  if (m?.[1]) return m[1];
+
+  // 2) twitter:image
+  m = /<meta\s+name=["']twitter:image["']\s+content=["']([^"']+)["']/i.exec(html);
+  if (m?.[1]) return m[1];
+
+  // 3) listing big image
+  m = /market_listing_largeimage.*?src=["']([^"']+)["']/i.exec(html);
+  if (m?.[1]) return m[1];
+
+  // 4) economy image from g_rgAssets (icon_url)
+  // Try to find something like "icon_url":"<hash>"
+  const icon = /"icon_url"\s*:\s*"([^"]+)"/.exec(html)?.[1];
+  if (icon) {
+    return `https://community.cloudflare.steamstatic.com/economy/image/${icon}`;
+  }
+
   return "";
 }
 
-async function prefetchImagesIfMissing() {
-  const watches = store.getWatches();
-  for (const w of watches) {
-    if (!w.imageUrl) {
-      try {
-        const url = await fetchListingImage(w.appid || 730, w.market_hash_name);
-        if (url) {
-          store.updateWatch(w.id, { imageUrl: url });
-          if (win) win.webContents.send('watch-log', { id: w.id, msg: `[info] fetched image` });
+// --- prefetch any missing images on boot ---
+async function prefetchMissingImages() {
+  try {
+    const watches = store.getWatches();
+    let updated = false;
+    for (const w of watches) {
+      if (!w.imageUrl) {
+        try {
+          await new Promise(r => setTimeout(r, 120 + Math.random() * 240)); // polite jitter
+          const url = await fetchImageUrl(w.appid || 730, w.market_hash_name);
+          if (url) {
+            store.updateWatch(w.id, { imageUrl: url });
+            updated = true;
+          }
+        } catch {
+          // ignore per-item errors
         }
-      } catch (e) {
-        if (win) win.webContents.send('watch-log', { id: w.id, msg: `[warn] image fetch failed: ${e.message || e}` });
       }
     }
-  }
+    if (updated && win) win.webContents.send('watches-changed'); // tell renderer to refresh cards
+  } catch {}
 }
 
 app.whenReady().then(async () => {
   store = new Store();
-
-  // prefetch thumbnails on first boot (and anytime repo starts with missing images)
-  await prefetchImagesIfMissing();
-
   watcher = new Watcher({
     store,
-    // now emits structured events (incl. type:'price') — pass straight to renderer
-    onLog: (evt) => win && win.webContents.send('watch-log', evt),
+    onLog: (evt) => win && win.webContents.send('watch-log', evt), // {id,msg}
     onNotify: ({ title, message }) => sendNativeNotification(title, message)
   });
 
   createWindow();
   createTray();
 
-  // settings + watches
+  // Settings + watches IPC
   ipcMain.handle('get-settings', () => store.getSettings());
   ipcMain.handle('save-settings', (_e, s) => { store.saveSettings(s); watcher.reload(); return true; });
-
   ipcMain.handle('get-watches', () => store.getWatches());
   ipcMain.handle('add-watch', (_e, w) => { store.addWatch(w); return store.getWatches(); });
   ipcMain.handle('remove-watch', (_e, id) => { store.removeWatch(id); return store.getWatches(); });
@@ -93,12 +124,17 @@ app.whenReady().then(async () => {
   ipcMain.handle('toggle-running', () => { if (watcher.isRunning()) watcher.pause(); else watcher.resume(); return watcher.isRunning(); });
   ipcMain.handle('get-status', () => ({ running: watcher.isRunning(), nextCheckInSec: watcher.timeUntilNextCheck() }));
 
-  // manual fetch (button in UI still works)
-  ipcMain.handle('fetch-image', async (_e, { appid, name }) => fetchListingImage(appid, name));
+  // still expose manual fetch-image (optional)
+  ipcMain.handle('fetch-image', async (_e, { appid, name }) => fetchImageUrl(appid, name));
+
+  // do the prefetch in background
+  prefetchMissingImages();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow(); else win.show();
   });
 });
 
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') app.quit();
+});
